@@ -27,9 +27,17 @@ imgBangs = [
     pygame.image.load('images/bang2.png'),
     pygame.image.load('images/bang3.png'),
     ]
-
+imgBonuses = [
+    pygame.image.load('images/bonus_star.png'),
+    pygame.image.load('images/bonus_tank.png'),
+    ]
 
 DIRECTS = [[0, -1], [1, 0], [0, 1], [-1, 0]]
+
+MOVE_SPEED =    [1, 2, 2, 1, 2, 3, 3, 2]
+BULLET_SPEED =  [4, 5, 6, 5, 5, 5, 6, 7]
+BULLET_DAMAGE = [1, 1, 2, 3, 2, 2, 3, 4]
+SHOT_DELAY =    [60, 50, 30, 40, 30, 25, 25, 30]
 
 class UI:
     def __init__(self):
@@ -43,6 +51,10 @@ class UI:
         for obj in objects:
             if obj.type == 'tank':
                 pygame.draw.rect(window, obj.color, (5 + i * 70, 5, 22, 22))
+
+                text = fontUI.render(str(obj.rank), 1, 'black')
+                rect = text.get_rect(center = (5 + i * 70 + 11, 5 + 11))
+                window.blit(text, rect)
 
                 text = fontUI.render(str(obj.hp), 1, obj.color)
                 rect = text.get_rect(center = (5 + i * 70 + 32, 5 + 11))
@@ -58,10 +70,10 @@ class Tank:
         self.color = color
         self.rect = pygame.Rect(px, py, TILE, TILE)
         self.direct = direct
-        self.moveSpeed = 2
         self.hp = 5
-
         self.shotTimer = 0
+
+        self.moveSpeed = 2
         self.shotDelay = 60
         self.bulletSpeed = 5
         self.bulletDamage = 1
@@ -80,6 +92,11 @@ class Tank:
         self.image = pygame.transform.rotate(imgTanks[self.rank], -self.direct * 90)
         self.image = pygame.transform.scale(self.image, (self.image.get_width() - 5, self.image.get_height() - 5))
         self.rect = self.image.get_rect(center = self.rect.center)
+
+        self.moveSpeed = MOVE_SPEED[self.rank]
+        self.shotDelay = SHOT_DELAY[self.rank]
+        self.bulletSpeed = BULLET_SPEED[self.rank]
+        self.bulletDamage = BULLET_DAMAGE[self.rank]
         
         oldX, oldY = self.rect.topleft
         if keys[self.keyLEFT]:
@@ -132,11 +149,12 @@ class Bullet:
             bullets.remove(self)
         else:
             for obj in objects:
-                if obj != self.parent and obj.type != 'bang' and obj.rect.collidepoint(self.px, self.py):
-                    obj.damage(self.damage)
-                    bullets.remove(self)
-                    Bang(self.px, self.py)
-                    break
+                if obj != self.parent and obj.type != 'bang' and obj.type != 'bonus':
+                    if obj.rect.collidepoint(self.px, self.py):
+                        obj.damage(self.damage)
+                        bullets.remove(self)
+                        Bang(self.px, self.py)
+                        break
 
     def draw(self):
         pygame.draw.circle(window, 'yellow', (self.px, self.py), 2)
@@ -177,6 +195,37 @@ class Block:
         self.hp -= value
         if self.hp <= 0: objects.remove(self)
 
+class Bonus:
+    def __init__(self, px, py, bonusNum):
+        objects.append(self)
+        self.type = 'bonus'
+
+        self.image = imgBonuses[bonusNum]
+        self.rect = self.image.get_rect(center = (px, py))
+
+        self.timer = 600
+        self.bonusNum = bonusNum
+
+    def update(self):
+        if self.timer > 0: self.timer -= 1
+        else: objects.remove(self)
+
+        for obj in objects:
+            if obj.type == 'tank' and self.rect.colliderect(obj.rect):
+                if self.bonusNum == 0:
+                    if obj.rank < len(imgTanks) - 1:
+                        obj.rank += 1
+                        objects.remove(self)
+                        break
+                elif self.bonusNum == 1:
+                    obj.hp += 1
+                    objects.remove(self)
+                    break
+
+    def draw(self):
+        if self.timer % 30 < 15:
+            window.blit(self.image, self.rect)
+
 bullets = []
 objects = []
 Tank('purple', 100, 275, 0, (pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_SPACE))
@@ -196,6 +245,8 @@ for _ in range(50):
 
     Block(x, y, TILE)
 
+bonusTimer = 180
+
 play = True
 while play:
     for event in pygame.event.get():
@@ -203,6 +254,11 @@ while play:
             play = False
 
     keys = pygame.key.get_pressed()
+
+    if bonusTimer > 0: bonusTimer -= 1
+    else:
+        Bonus(randint(50, WIDTH - 50), randint(50, HEIGHT - 50), randint(0, len(imgBonuses) - 1))
+        bonusTimer = randint(120, 240)
     
     for bullet in bullets: bullet.update()
     for obj in objects: obj.update()

@@ -4,12 +4,30 @@ pygame.init()
 
 WIDTH, HEIGHT = 800, 600
 FPS = 60
-TILE = 50
+TILE = 32
 
 window = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
 fontUI = pygame.font.Font(None, 30)
+
+imgBrick = pygame.image.load('images/block_brick.png')
+imgTanks = [
+    pygame.image.load('images/tank1.png'),
+    pygame.image.load('images/tank2.png'),
+    pygame.image.load('images/tank3.png'),
+    pygame.image.load('images/tank4.png'),
+    pygame.image.load('images/tank5.png'),
+    pygame.image.load('images/tank6.png'),
+    pygame.image.load('images/tank7.png'),
+    pygame.image.load('images/tank8.png'),
+    ]
+imgBangs = [
+    pygame.image.load('images/bang1.png'),
+    pygame.image.load('images/bang2.png'),
+    pygame.image.load('images/bang3.png'),
+    ]
+
 
 DIRECTS = [[0, -1], [1, 0], [0, 1], [-1, 0]]
 
@@ -54,7 +72,15 @@ class Tank:
         self.keyDOWN = keyList[3]
         self.keySHOT = keyList[4]
 
+        self.rank = 0
+        self.image = pygame.transform.rotate(imgTanks[self.rank], -self.direct * 90)
+        self.rect = self.image.get_rect(center = self.rect.center)
+
     def update(self):
+        self.image = pygame.transform.rotate(imgTanks[self.rank], -self.direct * 90)
+        self.image = pygame.transform.scale(self.image, (self.image.get_width() - 5, self.image.get_height() - 5))
+        self.rect = self.image.get_rect(center = self.rect.center)
+        
         oldX, oldY = self.rect.topleft
         if keys[self.keyLEFT]:
             self.rect.x -= self.moveSpeed
@@ -70,7 +96,7 @@ class Tank:
             self.direct = 2
 
         for obj in objects:
-            if obj != self and self.rect.colliderect(obj.rect):
+            if obj != self and obj.type == 'block' and self.rect.colliderect(obj.rect):
                 self.rect.topleft = oldX, oldY
 
         if keys[self.keySHOT] and self.shotTimer == 0:
@@ -82,11 +108,7 @@ class Tank:
         if self.shotTimer > 0: self.shotTimer -= 1
 
     def draw(self):
-        pygame.draw.rect(window, self.color, self.rect)
-
-        x = self.rect.centerx + DIRECTS[self.direct][0] * 30
-        y = self.rect.centery + DIRECTS[self.direct][1] * 30
-        pygame.draw.line(window, 'white', self.rect.center, (x, y), 4)
+        window.blit(self.image, self.rect)
 
     def damage(self, value):
         self.hp -= value
@@ -110,14 +132,33 @@ class Bullet:
             bullets.remove(self)
         else:
             for obj in objects:
-                if obj != self.parent and obj.rect.collidepoint(self.px, self.py):
+                if obj != self.parent and obj.type != 'bang' and obj.rect.collidepoint(self.px, self.py):
                     obj.damage(self.damage)
                     bullets.remove(self)
+                    Bang(self.px, self.py)
                     break
 
     def draw(self):
         pygame.draw.circle(window, 'yellow', (self.px, self.py), 2)
 
+
+class Bang:
+    def __init__(self, px, py):
+        objects.append(self)
+        self.type = 'bang'
+
+        self.px, self.py = px, py
+        self.frame = 0
+
+    def update(self):
+        self.frame += 0.2
+        if self.frame >= 3: objects.remove(self)
+
+    def draw(self):
+        image = imgBangs[int(self.frame)]
+        rect = image.get_rect(center = (self.px, self.py))
+        window.blit(image, rect)
+    
 class Block:
     def __init__(self, px, py, size):
         objects.append(self)
@@ -130,8 +171,7 @@ class Block:
         pass
 
     def draw(self):
-        pygame.draw.rect(window, 'green', self.rect)
-        pygame.draw.rect(window, 'gray20', self.rect, 2)
+        window.blit(imgBrick, self.rect)
 
     def damage(self, value):
         self.hp -= value
@@ -139,8 +179,8 @@ class Block:
 
 bullets = []
 objects = []
-Tank('blue', 100, 275, 0, (pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_SPACE))
-Tank('red', 650, 275, 0, (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN, pygame.K_KP_ENTER))
+Tank('purple', 100, 275, 0, (pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_SPACE))
+Tank('aqua', 650, 275, 0, (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN, pygame.K_KP_ENTER))
 ui = UI()
 
 for _ in range(50):
